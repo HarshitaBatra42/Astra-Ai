@@ -363,3 +363,31 @@ This project is licensed under the MIT License. See the LICENSE file for details
   - [ ] Custom voice commands
   - [ ] Gesture controls
 </details>
+fun sendMessage(userMessage: String) {
+    viewModelScope.launch {
+        _chatMessages.value += ChatMessage(userMessage, isFromUser = true)
+
+        _chatMessages.value += ChatMessage("Typing...", isFromUser = false, isTyping = true)
+
+        val result = safeApiCallWithRetry {
+            repository.sendMessageToAI(userMessage) // Your actual API function
+        }
+
+        // Remove the "Typing..." placeholder
+        _chatMessages.value = _chatMessages.value.filterNot { it.isTyping }
+
+        when (result) {
+            is NetworkResult.Success -> {
+                _chatMessages.value += ChatMessage(result.data, isFromUser = false)
+            }
+            is NetworkResult.Error -> {
+                _chatMessages.value += ChatMessage(
+                    "❗ ${result.message}. Please try again.",
+                    isFromUser = false
+                )
+                Log.e("ChatViewModel", "Error sending message", result.cause)
+            }
+            else -> Unit
+        }
+    }
+}
